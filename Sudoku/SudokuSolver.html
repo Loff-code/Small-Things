@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9x9 Sudoku Grid</title>
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-gap: 5px;
+        }
+        input[type="number"] {
+            width: 100%;
+            height: 50px;
+            text-align: center;
+            font-size: 18px;
+        }
+        button, select {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="grid-container" id="grid">
+    <!-- The 9x9 grid of input fields will be generated here -->
+</div>
+
+<!-- Dropdown for selecting a premade puzzle -->
+<select id="puzzleSelector">
+    <option value="0">Select a premade puzzle</option>
+    <option value="1">Puzzle 1</option>
+    <option value="2">Puzzle 2</option>
+    <option value="3">Puzzle 3</option>
+</select>
+
+<!-- Dropdown for selecting speed -->
+<select id="speedSelector">
+    <option value="0">Select a speed</option>
+    <option value="1">Speed 1 (Slow)</option>
+    <option value="2">Speed 2 (Medium)</option>
+    <option value="3">Speed 3 (Fast)</option>
+</select>
+
+<button onclick="loadPuzzle()">Load Puzzle</button>
+<button onclick="startSolving()">Start Solving</button>
+
+<script>
+    // Create 9x9 grid for user input
+    const gridContainer = document.getElementById('grid');
+    const inputs = [];
+    for (let row = 0; row < 9; row++) {
+        inputs[row] = [];
+        for (let col = 0; col < 9; col++) {
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.max = '9';
+            input.value = ''; // Empty initially
+            inputs[row][col] = input;
+            gridContainer.appendChild(input);
+        }
+    }
+
+    // Predefined puzzles (same format as fixNums)
+    const puzzles = [
+        { 
+            fixPlaces: [
+                [0, 0], [0, 1], [0, 4], [1, 0], [1, 3], [1, 4], [1, 5], [2, 1],
+                [2, 2], [2, 7], [3, 0], [3, 4], [3, 8], [4, 0], [4, 3], [4, 5],
+                [4, 8], [5, 0], [5, 4], [5, 8], [6, 1], [6, 6], [6, 7], [7, 3],
+                [7, 4], [7, 5], [7, 8], [8, 4], [8, 7], [8, 8]
+            ], 
+            fixNums: [
+                5, 3, 7, 6, 1, 9, 5, 9, 8, 6, 8, 6,
+                3, 4, 8, 3, 1, 7, 2, 6, 6, 2, 8, 4,
+                1, 9, 5, 8, 7, 9
+            ]
+        },
+        {
+            fixPlaces: [
+                [0, 1], [0, 4], [0, 7], [1, 0], [1, 3], [1, 5], [1, 8], [2, 2],
+                [2, 6], [3, 1], [3, 4], [3, 7], [4, 2], [4, 6], [5, 1], [5, 4],
+                [5, 7], [6, 2], [6, 6], [7, 0], [7, 3], [7, 5], [7, 8], [8, 1],
+                [8, 4], [8, 7]
+            ], 
+            fixNums: [
+                6, 7, 1, 2, 9, 5, 9, 8, 6, 7, 6, 3,
+                4, 8, 7, 2, 1, 9, 5, 4, 8, 7, 1, 9,
+                5, 2
+            ]
+        },
+        {
+            fixPlaces: [
+                [0, 0], [0, 3], [0, 4], [0, 8], [1, 1], [1, 2], [1, 6], [2, 4],
+                [2, 5], [2, 6], [3, 0], [3, 3], [4, 2], [4, 6], [5, 4], [6, 2],
+                [6, 3], [7, 1], [7, 2], [7, 6], [8, 0], [8, 4], [8, 5], [8, 8]
+            ], 
+            fixNums: [
+                9, 7, 6, 4, 1, 8, 2, 6, 7, 9, 2, 8,
+                3, 9, 5, 6, 3, 4, 1, 9, 3, 5, 7, 8
+            ]
+        }
+    ];
+
+    // Load the selected puzzle into the grid
+    function loadPuzzle() {
+        const selectedPuzzleIndex = document.getElementById('puzzleSelector').value - 1;
+        if (selectedPuzzleIndex >= 0) {
+            const puzzle = puzzles[selectedPuzzleIndex];
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    inputs[row][col].value = ''; // Clear previous inputs
+                }
+            }
+            puzzle.fixPlaces.forEach((place, index) => {
+                const row = place[0];
+                const col = place[1];
+                inputs[row][col].value = puzzle.fixNums[index];
+            });
+        }
+    }
+
+    // Sleep function with speed adjustment
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Get speed from the speed selector
+    function getSpeed() {
+        const speedValue = document.getElementById('speedSelector').value;
+        switch (speedValue) {
+            case '1':
+                return 50; // Slow
+            case '2':
+                return 10;  // Medium
+            case '3':
+                return 10;  // speedFast
+            default:
+                return 50;  // Default to medium if not selected
+        }
+    }
+
+    // Initialize the board based on user inputs
+    function getBoardFromInput() {
+        const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                const value = inputs[row][col].value;
+                board[row][col] = value ? parseInt(value) : 0;
+            }
+        }
+        return board;
+    }
+
+    // Update the grid based on the board state
+    async function printBoard(board) {
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                if (board[row][col] === 0) {
+                    inputs[row][col].value = ''; // Clear incorrect values
+                } else {
+                    inputs[row][col].value = board[row][col];
+                }
+            }
+        }
+        await sleep(getSpeed()); // Use speed delay
+    }
+
+    // Solve the board with backtracking
+    async function solve(board) {
+        let empty = findEmpty(board);
+        if (empty == null) {
+            return true; // Solved
+        }
+        let row = empty[0];
+        let col = empty[1];
+
+        await printBoard(board); // Print the board at every step
+
+        for (let num = 1; num < 10; num++) {
+            if (isValid(board, row, col, num)) {
+                board[row][col] = num;
+                if (await solve(board)) {
+                    return true;
+                }
+                board[row][col] = 0; // Backtrack
+                await printBoard(board); // Update grid after backtracking
+            }
+        }
+        return false;
+    }
+
+    // Check if the current number is valid
+    function isValid(board, row, col, num) {
+        for (let i = 0; i < 9; i++) {
+            if (board[row][i] === num || board[i][col] === num) {
+                return false;
+            }
+        }
+        const startRow = Math.floor(row / 3) * 3;
+        const startCol = Math.floor(col / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[startRow + i][startCol + j] === num) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // Find the next empty cell
+    function findEmpty(board) {
+        for (let row = 0; row < 9; row++) {
+            for (let col = 0; col < 9; col++) {
+                if (board[row][col] === 0) {
+                    return [row, col];
+                }
+            }
+        }
+        return null;
+    }
+
+    // Start solving the puzzle when the button is clicked
+    async function startSolving() {
+        const board = getBoardFromInput(); // Get user input as board
+        await solve(board); // Solve the board
+        alert("done!")
+        
+    }
+</script>
+
+</body>
+</html>
